@@ -21,6 +21,7 @@ During COVID I partially occupied my brain on how would one setup a perpetual se
 
 ### Self-Hosting Services
 1. Computing Farm
-2. Instant Messanging
-3. Email
-4. File Server
+2. Git Server
+3. Instant Messanging
+4. Email
+5. File Server
