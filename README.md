@@ -10,7 +10,7 @@ During COVID I partially occupied my brain on how would one setup a perpetual se
 2. Power
 
 ### Infrastructure
-1. Hardware
+1. [Hardware](hardware.md)
 2. Network
 
 ### Self-Hosting Open Source Repositories
