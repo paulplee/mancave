@@ -31,12 +31,12 @@
   i18n.defaultLocale = "en_HK.UTF-8";
 
   # Enable the X11 windowing system.
+  # You can disable this if you're only using the Wayland session.
   services.xserver.enable = true;
 
-  # Enable the Deepin Desktop Environment.
-  services.xserver.displayManager.lightdm.enable = true;
-  services.xserver.desktopManager.deepin.enable = false;
-  services.xserver.desktopManager.plasma5.enable = true;
+  # Enable the KDE Plasma Desktop Environment.
+  services.displayManager.sddm.enable = true;
+  services.desktopManager.plasma6.enable = true;
 
   # Configure keymap in X11
   services.xserver.xkb = {
@@ -70,8 +70,9 @@
   users.users.paulplee = {
     isNormalUser = true;
     description = "Paul Lee";
-    extraGroups = [ "networkmanager" "wheel" ];
+    extraGroups = [ "networkmanager" "wheel" "adbusers"];
     packages = with pkgs; [
+      kdePackages.kate
     #  thunderbird
     ];
   };
@@ -85,19 +86,37 @@
   # List packages installed in system profile. To search, run:
   # $ nix search wget
   environment.systemPackages = with pkgs; [
-    neovim 
-    wget
-    git
-    python3
-    vscode
-    android-studio
-    ungoogled-chromium
-    microsoft-edge
     direnv
-    flutter
     obsidian
     jdk
+    git
+    python3
+    flutter
+    android-studio
+    neovim
+    vscode
+    ungoogled-chromium
+    microsoft-edge
+    telegram-desktop
+    whatsapp-for-linux
+    kitty
   ];
+
+
+  programs = {
+    adb.enable = true;
+  };
+
+  system.userActivationScripts = {
+    stdio = {
+      text = ''
+        rm -f ~/Android/Sdk/platform-tools/adb
+        ln -s /run/current-system/sw/bin/adb ~/Android/Sdk/platform-tools/adb
+      '';
+      deps = [
+      ];
+    };
+  };
 
   # Some programs need SUID wrappers, can be configured further or are
   # started in user sessions.
