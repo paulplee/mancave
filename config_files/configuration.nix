@@ -77,6 +77,12 @@
     ];
   };
 
+  # Mount /data
+  fileSystems."/data" = {
+    device = "/dev/disk/by-uuid/bcb5f873-0bbb-4bd9-ba25-0daefd88dd45";
+    fsType = "auto";
+  };
+
   # Install firefox.
   programs.firefox.enable = true;
 
