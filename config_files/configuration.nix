@@ -86,8 +86,11 @@
   # List packages installed in system profile. To search, run:
   # $ nix search wget
   environment.systemPackages = with pkgs; [
+    # System Level Tools
     direnv
-    obsidian
+    kitty
+
+    # Development
     jdk
     git
     python3
@@ -95,11 +98,18 @@
     android-studio
     neovim
     vscode
+
+    # Browsers
     ungoogled-chromium
     microsoft-edge
+
+    # Messaging
     telegram-desktop
     whatsapp-for-linux
-    kitty
+    zoom-us
+
+    # Productivity
+    obsidian 
   ];
 
 
