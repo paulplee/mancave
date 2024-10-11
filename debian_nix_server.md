@@ -9,27 +9,27 @@ This guide provides instructions for setting up a new Debian server with Nix pac
 
 ## 2. Install Nix Package Manager
 
-1. Install Nix (as a non-root user):
+1. Install Nix (as a root user):
    ```
    sh <(curl -L https://nixos.org/nix/install) --daemon
    ```
 
 2. Source the Nix profile script:
    ```
-   . ~/.nix-profile/etc/profile.d/nix.sh
+   . /etc/profile.d/nix.sh
    ```
 
 ## 3. Install Home Manager System-Wide
 
 1. Add the Home Manager channel:
    ```
-   sudo nix-channel --add https://github.com/nix-community/home-manager/archive/master.tar.gz home-manager
-   sudo nix-channel --update
+   nix-channel --add https://github.com/nix-community/home-manager/archive/master.tar.gz home-manager
+   nix-channel --update
    ```
 
 2. Install Home Manager:
    ```
-   sudo nix-shell '<home-manager>' -A install
+   nix-shell '<home-manager>' -A install
    ```
 
 ## 4. Create a Script for Automated User Setup
