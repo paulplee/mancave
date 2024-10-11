@@ -177,9 +177,6 @@ fi
 export NIX_PATH=\$HOME/.nix-defexpr/channels\${NIX_PATH:+:}\$NIX_PATH
 export PATH=\$HOME/.nix-profile/bin:\$PATH
 
-# Debug output
-echo "DEBUG: .profile sourced"
-echo "DEBUG: PATH is \$PATH"
 EOF
 
 # Update .bashrc
