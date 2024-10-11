@@ -12,7 +12,6 @@ This guide provides step-by-step instructions for setting up a new Debian server
 1. Install the required dependencies:
    ```
    sudo apt-get update
-   sudo apt-get install -y curl xz-utils
    ```
 
 2. Install Nix (as a non-root user):
@@ -134,7 +133,6 @@ This guide provides step-by-step instructions for setting up a new Debian server
 
    Host *
        AddKeysToAgent yes
-       UseKeychain yes
        IdentityFile ~/.ssh/id_ed25519
    ```
 
