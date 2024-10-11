@@ -39,37 +39,55 @@ Create a script named `setup_user.sh` with the following content:
 ```bash
 #!/bin/bash
 
+set -e
+
 # Check if the script is run as root
-if [ "$EUID" -ne 0 ]
-  then echo "Please run as root"
-  exit
+if [ "$EUID" -ne 0 ]; then
+  echo "Please run as root"
+  exit 1
 fi
 
 # Check if a username was provided
-if [ $# -eq 0 ]
-  then echo "Please provide a username"
-  exit
+if [ $# -eq 0 ]; then
+  echo "Please provide a username"
+  exit 1
 fi
 
 USERNAME=$1
 
-# Create the user
-adduser --disabled-password --gecos "" $USERNAME
-
-# Add user to sudo group
-usermod -aG sudo $USERNAME
+# Create the user if it doesn't exist
+if ! id "$USERNAME" &>/dev/null; then
+  adduser --disabled-password --gecos "" $USERNAME
+  usermod -aG sudo $USERNAME
+else
+  echo "User $USERNAME already exists. Skipping user creation."
+fi
 
 # Set up SSH for the new user
 mkdir -p /home/$USERNAME/.ssh
-touch /home/$USERNAME/.ssh/authorized_keys
 chmod 700 /home/$USERNAME/.ssh
+cp /home/admin/.ssh/authorized_keys /home/$USERNAME/.ssh/authorized_keys
 chmod 600 /home/$USERNAME/.ssh/authorized_keys
 chown -R $USERNAME:$USERNAME /home/$USERNAME/.ssh
 
-# Add your SSH public key to the new user's authorized_keys file
-echo "your_ssh_public_key" >> /home/$USERNAME/.ssh/authorized_keys
+# Ensure the user is in the necessary groups for Nix
+usermod -aG nixbld $USERNAME
+
+# Source Nix environment
+. /etc/profile.d/nix.sh
+
+# Install home-manager
+echo "Installing home-manager..."
+sudo -i -u $USERNAME bash << EOF
+  . /etc/profile.d/nix.sh
+  nix-channel --add https://github.com/nix-community/home-manager/archive/master.tar.gz home-manager
+  nix-channel --update
+  export NIX_PATH=\$HOME/.nix-defexpr/channels\${NIX_PATH:+:}\$NIX_PATH
+  nix-shell '<home-manager>' -A install
+EOF
 
 # Create Home Manager configuration
+echo "Creating Home Manager configuration..."
 sudo -u $USERNAME mkdir -p /home/$USERNAME/.config/nixpkgs
 sudo -u $USERNAME tee /home/$USERNAME/.config/nixpkgs/home.nix << EOF
 { config, pkgs, ... }:
@@ -96,13 +114,104 @@ sudo -u $USERNAME tee /home/$USERNAME/.config/nixpkgs/home.nix << EOF
   programs.tmux = {
     enable = true;
   };
+
+  home.sessionVariables = {
+    EDITOR = "nvim";
+  };
+
+  home.sessionPath = [
+    "\$HOME/.nix-profile/bin"
+  ];
 }
 EOF
 
 # Run home-manager switch for the new user
-sudo -u $USERNAME home-manager switch
+echo "Running home-manager switch..."
+sudo -i -u $USERNAME bash << EOF
+  set -x
+  . /etc/profile.d/nix.sh
+  export NIX_PATH=\$HOME/.nix-defexpr/channels\${NIX_PATH:+:}\$NIX_PATH
+  home-manager switch
+  set +x
+  echo "Home Manager switch completed."
+  echo "Installed packages:"
+  ls -l \$HOME/.nix-profile/bin
+EOF
 
 echo "User $USERNAME has been set up with Home Manager configuration."
+
+# Manually link packages if they're not available
+echo "Ensuring packages are linked..."
+sudo -i -u $USERNAME bash << EOF
+  set -x
+  . /etc/profile.d/nix.sh
+  for pkg in neovim git tmux; do
+    if ! command -v \$pkg &> /dev/null; then
+      echo "\$pkg not found, attempting to link..."
+      nix-env -iA nixpkgs.\$pkg
+    fi
+  done
+  set +x
+EOF
+
+# Update .profile
+sudo -u $USERNAME tee /home/$USERNAME/.profile << EOF
+# ~/.profile: executed by the command interpreter for login shells.
+
+# Nix
+if [ -e /etc/profile.d/nix.sh ]; then
+  . /etc/profile.d/nix.sh
+fi
+
+# set PATH so it includes user's private bin if it exists
+if [ -d "\$HOME/bin" ] ; then
+    PATH="\$HOME/bin:\$PATH"
+fi
+
+# set PATH so it includes user's private .local/bin if it exists
+if [ -d "\$HOME/.local/bin" ] ; then
+    PATH="\$HOME/.local/bin:\$PATH"
+fi
+
+# Home Manager
+export NIX_PATH=\$HOME/.nix-defexpr/channels\${NIX_PATH:+:}\$NIX_PATH
+export PATH=\$HOME/.nix-profile/bin:\$PATH
+
+# Debug output
+echo "DEBUG: .profile sourced"
+echo "DEBUG: PATH is \$PATH"
+EOF
+
+# Update .bashrc
+sudo -u $USERNAME tee /home/$USERNAME/.bashrc << EOF
+# ~/.bashrc: executed by bash(1) for non-login shells.
+
+# If not running interactively, don't do anything
+case \$- in
+    *i*) ;;
+      *) return;;
+esac
+
+# Source global definitions
+if [ -f /etc/bashrc ]; then
+    . /etc/bashrc
+fi
+
+# Source .profile if it exists
+if [ -f "\$HOME/.profile" ]; then
+  . "\$HOME/.profile"
+fi
+
+# Initialize Home Manager
+if [ -f "\$HOME/.nix-profile/etc/profile.d/hm-session-vars.sh" ]; then
+  . "\$HOME/.nix-profile/etc/profile.d/hm-session-vars.sh"
+fi
+
+EOF
+
+echo "Nix and Home Manager have been added to $USERNAME's profile and bashrc."
+echo "Setup completed successfully."
+
 ```
 
 Make the script executable:
