@@ -48,12 +48,14 @@ if [ "$EUID" -ne 0 ]; then
 fi
 
 # Check if a username was provided
-if [ $# -eq 0 ]; then
-  echo "Please provide a username"
+if [ $# -lt 3 ]; then
+  echo "Usage: $0 <username> <git_user_name> <git_user_email>"
   exit 1
 fi
 
 USERNAME=$1
+GIT_USER_NAME=$2
+GIT_USER_EMAIL=$3
 
 # Create the user if it doesn't exist
 if ! id "$USERNAME" &>/dev/null; then
@@ -62,6 +64,9 @@ if ! id "$USERNAME" &>/dev/null; then
 else
   echo "User $USERNAME already exists. Skipping user creation."
 fi
+
+# Configure sudo access without password for the new user
+echo "$USERNAME ALL=(ALL) NOPASSWD:ALL" | EDITOR='tee -a' visudo
 
 # Set up SSH for the new user
 mkdir -p /home/$USERNAME/.ssh
@@ -105,14 +110,53 @@ sudo -u $USERNAME tee /home/$USERNAME/.config/nixpkgs/home.nix << EOF
     tmux
   ];
 
-  programs.git = {
-    enable = true;
-    userName = "Your Name";
-    userEmail = "your.email@example.com";
-  };
-
   programs.tmux = {
     enable = true;
+    extraConfig = ''
+      set -g default-terminal "screen-256color"
+
+      unbind %
+      bind | split-window -h
+
+      unbind '"'
+      bind - split-window -v
+
+      unbind r
+      bind r source-file ~/.tmux.conf
+
+      bind -r j resize-pane -D 5
+      bind -r k resize-pane -U 5
+      bind -r l resize-pane -R 5
+      bind -r h resize-pane -L 5
+
+      bind -r m resize-pane -Z
+
+      set -g mouse on
+
+      set-window-option -g mode-keys vi
+
+      bind-key -T copy-mode-vi 'v' send -X begin-selection
+      bind-key -T copy-mode-vi 'y' send -X copy-selection
+
+      unbind -T copy-mode-vi MouseDragEnd1Pane
+
+      # tpm plugin
+      set -g @plugin 'tmux-plugins/tpm'
+
+      # list of tmux plugins
+      set -g @plugin 'christoomey/vim-tmux-navigator'
+      set -g @plugin 'jimeh/tmux-themepack'
+      set -g @plugin 'tmux-plugins/tmux-resurrect'
+      set -g @plugin 'tmux-plugins/tmux-continuum'
+
+      set -g @themepack 'powerline/default/cyan'
+
+      set -g @resurrect-capture-pane-contents 'on'
+      set -g @continuum-restore 'on'
+
+      # Initialize TMUX plugin manager (keep this line at the very bottom of tmux.conf)
+      run '~/.tmux/plugins/tpm/tpm'
+    '';
   };
 
   home.sessionVariables = {
@@ -206,8 +250,43 @@ fi
 
 EOF
 
+# Install tmux plugin manager (tpm)
+echo "Checking and installing tmux plugin manager (tpm) if necessary..."
+sudo -i -u $USERNAME bash << EOF
+  set -e
+  . /etc/profile.d/nix.sh
+  export PATH=\$HOME/.nix-profile/bin:\$PATH
+  if [ ! -d ~/.tmux/plugins/tpm ]; then
+    if command -v git &> /dev/null; then
+      git clone https://github.com/tmux-plugins/tpm ~/.tmux/plugins/tpm
+      echo "Tmux plugin manager (tpm) installed."
+    else
+      echo "Error: git command not found. Please ensure git is installed and in the PATH."
+      exit 1
+    fi
+  else
+    echo "Tmux plugin manager (tpm) is already installed."
+  fi
+EOF
+
+# Configure git
+echo "Configuring git..."
+sudo -i -u $USERNAME bash << EOF
+  . /etc/profile.d/nix.sh
+  export PATH=\$HOME/.nix-profile/bin:\$PATH
+  git config --global user.name "$GIT_USER_NAME"
+  git config --global user.email "$GIT_USER_EMAIL"
+  git config --global core.editor "nvim"
+  git config --global color.ui true
+  echo "Git configuration:"
+  git config --list --global
+EOF
+
 echo "Nix and Home Manager have been added to $USERNAME's profile and bashrc."
 echo "Setup completed successfully."
+echo "Note: The user may need to restart their tmux session or run 'tmux source ~/.tmux.conf' to apply the changes."
+echo "To install tmux plugins, the user should open a tmux session and press prefix + I."
+
 
 ```
 
